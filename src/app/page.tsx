@@ -11,10 +11,19 @@ interface SourceChunk {
   score: number;
 }
 
+interface CharacterImage {
+  title: string;
+  thumb_url: string;
+  source_url: string;
+  artist: string;
+  license: string;
+}
+
 interface AskResponse {
   answer: string;
   speaker: string;
   sources: SourceChunk[];
+  image: CharacterImage | null;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -66,14 +75,16 @@ export default function Home() {
       });
 
       if (!res.ok) {
-        throw new Error(`서버가 ${res.status} 응답을 반환했습니다.`);
+        const body = await res.text();
+        setError(`서버가 ${res.status} 오류를 반환했습니다. ${body.slice(0, 200)}`);
+        return;
       }
 
       const data: AskResponse = await res.json();
       setResult(data);
     } catch {
       setError(
-        `서버에 연결할 수 없습니다. 백엔드가 ${API_URL} 에서 실행 중인지 확인하세요.`
+        `서버에 연결할 수 없습니다. 백엔드가 ${API_URL} 에서 실행 중인지, CORS가 허용되어 있는지 확인하세요.`
       );
     } finally {
       setLoading(false);
@@ -143,6 +154,30 @@ export default function Home() {
                   {result.answer}
                 </p>
               </div>
+
+              {/* 화자 관련 고전 미술 이미지 (Wikimedia Commons) */}
+              {result.image && (
+                <div className="flex flex-col gap-2 border-t border-[#B0894F]/20 pt-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={result.image.thumb_url}
+                    alt={result.image.title}
+                    className="max-h-80 w-full rounded-sm border border-[#B0894F]/25 object-contain bg-[#16110D]"
+                  />
+                  <div className="flex flex-col gap-1 font-[family-name:var(--font-mono)] text-[11px] text-[#A99A83]">
+                    <a
+                      href={result.image.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#B0894F] underline decoration-[#B0894F]/40 underline-offset-2 hover:text-[#C1592F]"
+                    >
+                      {result.image.title}
+                    </a>
+                    {result.image.artist && <span>작가: {result.image.artist}</span>}
+                    <span>{result.image.license} · Wikimedia Commons</span>
+                  </div>
+                </div>
+              )}
 
               {/* 출처 */}
               {result.sources.length > 0 && (
