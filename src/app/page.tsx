@@ -27,6 +27,7 @@ interface AskResponse {
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY ?? "";
 
 // ---------- 시그니처 요소: 그리스 문양(meander) 띠 ----------
 // 장식은 이 한 곳에만 — 카드 상단 hairline으로만 사용
@@ -70,7 +71,10 @@ export default function Home() {
     try {
       const res = await fetch(`${API_URL}/ask`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": API_KEY,
+        },
         body: JSON.stringify({ question: trimmed }),
       });
 
