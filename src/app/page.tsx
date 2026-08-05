@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
+import Link from "next/link";
 
 // ---------- 타입 (백엔드 schemas.py의 AskResponse와 대응) ----------
 
@@ -58,6 +59,11 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AskResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(!!localStorage.getItem("fable_dashboard_token"));
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -99,7 +105,13 @@ export default function Home() {
     <div className="min-h-screen bg-[#16110D] px-6 py-16 text-[#EFE4D0]">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-10">
         {/* 헤더 */}
-        <header className="flex flex-col items-center gap-3 text-center">
+        <header className="relative flex flex-col items-center gap-3 text-center">
+          <Link
+            href={isLoggedIn ? "/logs" : "/login"}
+            className="absolute right-0 top-1 font-[family-name:var(--font-mono)] text-xs text-[#A99A83] underline decoration-[#B0894F]/40 underline-offset-2 hover:text-[#C1592F]"
+          >
+            {isLoggedIn ? "대화 로그" : "로그인"}
+          </Link>
           <h1 className="font-[family-name:var(--font-display)] text-5xl font-bold tracking-tight text-[#EFE4D0]">
             FABLE
           </h1>
