@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, FormEvent, useEffect } from "react";
+import { useState, FormEvent, useEffect, useRef } from "react";
 import Link from "next/link";
 
-// ---------- 타입 (백엔드 schemas.py의 AskResponse와 대응) ----------
+// ---------- 타입 (백엔드 schemas.py와 대응) ----------
 
 interface SourceChunk {
   work_title: string;
@@ -27,11 +27,19 @@ interface AskResponse {
   image: CharacterImage | null;
 }
 
+interface ConversationTurn {
+  question: string;
+  answer: string;
+  speaker: string;
+  sources: SourceChunk[];
+  image: CharacterImage | null;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY ?? "";
+const HISTORY_TURNS_SENT = 5; // 백엔드로 보낼 최근 대화 턴 수
 
 // ---------- 시그니처 요소: 그리스 문양(meander) 띠 ----------
-// 장식은 이 한 곳에만 — 카드 상단 hairline으로만 사용
 
 function MeanderStrip() {
   return (
@@ -42,12 +50,7 @@ function MeanderStrip() {
       aria-hidden="true"
     >
       <pattern id="meander" width="20" height="10" patternUnits="userSpaceOnUse">
-        <path
-          d="M0 9H5V1H15V5H9V9H20"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.4"
-        />
+        <path d="M0 9H5V1H15V5H9V9H20" fill="none" stroke="currentColor" strokeWidth="1.4" />
       </pattern>
       <rect width="160" height="10" fill="url(#meander)" />
     </svg>
@@ -57,13 +60,18 @@ function MeanderStrip() {
 export default function Home() {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<AskResponse | null>(null);
+  const [conversation, setConversation] = useState<ConversationTurn[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsLoggedIn(!!localStorage.getItem("fable_dashboard_token"));
   }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [conversation, loading]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -72,7 +80,13 @@ export default function Home() {
 
     setLoading(true);
     setError(null);
-    setResult(null);
+    setQuestion("");
+
+    const history = conversation.slice(-HISTORY_TURNS_SENT).map((t) => ({
+      question: t.question,
+      answer: t.answer,
+      speaker: t.speaker,
+    }));
 
     try {
       const res = await fetch(`${API_URL}/ask`, {
@@ -81,7 +95,7 @@ export default function Home() {
           "Content-Type": "application/json",
           "X-API-Key": API_KEY,
         },
-        body: JSON.stringify({ question: trimmed }),
+        body: JSON.stringify({ question: trimmed, history }),
       });
 
       if (!res.ok) {
@@ -91,7 +105,16 @@ export default function Home() {
       }
 
       const data: AskResponse = await res.json();
-      setResult(data);
+      setConversation((prev) => [
+        ...prev,
+        {
+          question: trimmed,
+          answer: data.answer,
+          speaker: data.speaker,
+          sources: data.sources,
+          image: data.image,
+        },
+      ]);
     } catch {
       setError(
         `서버에 연결할 수 없습니다. 백엔드가 ${API_URL} 에서 실행 중인지, CORS가 허용되어 있는지 확인하세요.`
@@ -103,7 +126,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#16110D] px-6 py-16 text-[#EFE4D0]">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-10">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8">
         {/* 헤더 */}
         <header className="relative flex flex-col items-center gap-3 text-center">
           <Link
@@ -120,15 +143,98 @@ export default function Home() {
           </p>
         </header>
 
-        {/* 입력 카드 */}
-        <section className="overflow-hidden rounded-sm border border-[#B0894F]/25 bg-[#1F1712]">
+        {/* 대화 로그 */}
+        <div className="flex flex-col gap-4">
+          {conversation.length === 0 && !loading && !error && (
+            <p className="text-center font-[family-name:var(--font-body)] text-sm text-[#A99A83]">
+              질문을 남기면, 원전 속 인물이 직접 답합니다.
+            </p>
+          )}
+
+          {conversation.map((turn, i) => (
+            <div key={i} className="flex flex-col gap-2">
+              {/* 사용자 질문 */}
+              <div className="self-end rounded-sm border border-[#B0894F]/20 bg-[#1F1712] px-4 py-2.5 text-sm text-[#EFE4D0]">
+                {turn.question}
+              </div>
+
+              {/* 화자 답변 카드 */}
+              <section className="overflow-hidden rounded-sm border border-[#B0894F]/25 bg-[#1F1712]">
+                <MeanderStrip />
+                <div className="flex flex-col gap-5 p-5">
+                  <div className="flex flex-col gap-2">
+                    <span className="font-[family-name:var(--font-display)] text-lg font-medium text-[#C1592F]">
+                      {turn.speaker}
+                    </span>
+                    <p className="font-[family-name:var(--font-body)] leading-relaxed text-[#EFE4D0]">
+                      {turn.answer}
+                    </p>
+                  </div>
+
+                  {turn.image && (
+                    <div className="flex flex-col gap-2 border-t border-[#B0894F]/20 pt-4">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={turn.image.thumb_url}
+                        alt={turn.image.title}
+                        className="max-h-72 w-full rounded-sm border border-[#B0894F]/25 bg-[#16110D] object-contain"
+                      />
+                      <div className="flex flex-col gap-1 font-[family-name:var(--font-mono)] text-[11px] text-[#A99A83]">
+                        <a
+                          href={turn.image.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#B0894F] underline decoration-[#B0894F]/40 underline-offset-2 hover:text-[#C1592F]"
+                        >
+                          {turn.image.title}
+                        </a>
+                        {turn.image.artist && <span>작가: {turn.image.artist}</span>}
+                        <span>{turn.image.license} · Wikimedia Commons</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {turn.sources.length > 0 && (
+                    <div className="flex flex-col gap-2 border-t border-[#B0894F]/20 pt-4">
+                      <span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.15em] text-[#A99A83]">
+                        원전 근거
+                      </span>
+                      <ul className="flex flex-col gap-1.5">
+                        {turn.sources.map((s, si) => (
+                          <li
+                            key={si}
+                            className="flex items-baseline justify-between gap-4 font-[family-name:var(--font-mono)] text-xs text-[#A99A83]"
+                          >
+                            <span className="truncate">
+                              {s.work_title} · {s.chapter}
+                            </span>
+                            <span className="shrink-0 text-[#B0894F]">{s.score.toFixed(3)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+          ))}
+
+          {loading && (
+            <p className="text-sm text-[#A99A83]">묻는 중…</p>
+          )}
+          {error && <p className="text-sm text-[#D9713F]">{error}</p>}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* 입력 카드 — 하단 고정 느낌으로 대화 로그 아래 위치 */}
+        <section className="sticky bottom-4 overflow-hidden rounded-sm border border-[#B0894F]/25 bg-[#1F1712] shadow-lg shadow-black/40">
           <MeanderStrip />
-          <form onSubmit={handleSubmit} className="flex gap-3 p-5">
+          <form onSubmit={handleSubmit} className="flex gap-3 p-4">
             <input
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="예: 아킬레우스는 왜 화가 났어?"
+              placeholder="예: 그래서 어떻게 됐어?"
               disabled={loading}
               className="flex-1 rounded-sm border border-[#B0894F]/30 bg-[#16110D] px-4 py-3 font-[family-name:var(--font-body)] text-[#EFE4D0] placeholder:text-[#A99A83]/60 outline-none focus-visible:border-[#C1592F] focus-visible:ring-2 focus-visible:ring-[#C1592F]/40 disabled:opacity-50"
             />
@@ -141,86 +247,6 @@ export default function Home() {
             </button>
           </form>
         </section>
-
-        {/* 에러 */}
-        {error && (
-          <p className="font-[family-name:var(--font-body)] text-sm text-[#D9713F]">
-            {error}
-          </p>
-        )}
-
-        {/* 빈 상태 안내 */}
-        {!result && !error && !loading && (
-          <p className="text-center font-[family-name:var(--font-body)] text-sm text-[#A99A83]">
-            질문을 남기면, 원전 속 인물이 직접 답합니다.
-          </p>
-        )}
-
-        {/* 결과 */}
-        {result && (
-          <section className="overflow-hidden rounded-sm border border-[#B0894F]/25 bg-[#1F1712]">
-            <MeanderStrip />
-            <div className="flex flex-col gap-6 p-6">
-              {/* 화자 + 답변 */}
-              <div className="flex flex-col gap-2">
-                <span className="font-[family-name:var(--font-display)] text-lg font-medium text-[#C1592F]">
-                  {result.speaker}
-                </span>
-                <p className="font-[family-name:var(--font-body)] leading-relaxed text-[#EFE4D0]">
-                  {result.answer}
-                </p>
-              </div>
-
-              {/* 화자 관련 고전 미술 이미지 (Wikimedia Commons) */}
-              {result.image && (
-                <div className="flex flex-col gap-2 border-t border-[#B0894F]/20 pt-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={result.image.thumb_url}
-                    alt={result.image.title}
-                    className="max-h-80 w-full rounded-sm border border-[#B0894F]/25 object-contain bg-[#16110D]"
-                  />
-                  <div className="flex flex-col gap-1 font-[family-name:var(--font-mono)] text-[11px] text-[#A99A83]">
-                    <a
-                      href={result.image.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#B0894F] underline decoration-[#B0894F]/40 underline-offset-2 hover:text-[#C1592F]"
-                    >
-                      {result.image.title}
-                    </a>
-                    {result.image.artist && <span>작가: {result.image.artist}</span>}
-                    <span>{result.image.license} · Wikimedia Commons</span>
-                  </div>
-                </div>
-              )}
-
-              {/* 출처 */}
-              {result.sources.length > 0 && (
-                <div className="flex flex-col gap-2 border-t border-[#B0894F]/20 pt-4">
-                  <span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.15em] text-[#A99A83]">
-                    원전 근거
-                  </span>
-                  <ul className="flex flex-col gap-1.5">
-                    {result.sources.map((s, i) => (
-                      <li
-                        key={i}
-                        className="flex items-baseline justify-between gap-4 font-[family-name:var(--font-mono)] text-xs text-[#A99A83]"
-                      >
-                        <span className="truncate">
-                          {s.work_title} · {s.chapter}
-                        </span>
-                        <span className="shrink-0 text-[#B0894F]">
-                          {s.score.toFixed(3)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
       </div>
     </div>
   );
