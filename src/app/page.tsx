@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 // ---------- 타입 (백엔드 schemas.py와 대응) ----------
@@ -63,10 +64,22 @@ export default function Home() {
   const [conversation, setConversation] = useState<ConversationTurn[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    setIsLoggedIn(!!localStorage.getItem("fable_dashboard_token"));
+    const token = localStorage.getItem("fable_dashboard_token");
+    if (!token) return;
+
+    setIsLoggedIn(true);
+
+    fetch(`${API_URL}/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { is_admin: boolean } | null) => {
+        if (data) setIsAdmin(data.is_admin);
+      })
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -75,6 +88,13 @@ export default function Home() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+
+    if (!isLoggedIn) {
+      alert("로그인 후 사용하세요.");
+      router.push("/login");
+      return;
+    }
+
     const trimmed = question.trim();
     if (!trimmed || loading) return;
 
@@ -129,12 +149,33 @@ export default function Home() {
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8">
         {/* 헤더 */}
         <header className="relative flex flex-col items-center gap-3 text-center">
-          <Link
-            href={isLoggedIn ? "/logs" : "/login"}
-            className="absolute right-0 top-1 font-[family-name:var(--font-mono)] text-xs text-[#A99A83] underline decoration-[#B0894F]/40 underline-offset-2 hover:text-[#C1592F]"
-          >
-            {isLoggedIn ? "대화 로그" : "로그인"}
-          </Link>
+          <div className="absolute right-0 top-1 flex items-center gap-3 font-[family-name:var(--font-mono)] text-xs text-[#A99A83]">
+            {isLoggedIn ? (
+              <>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="underline decoration-[#B0894F]/40 underline-offset-2 hover:text-[#C1592F]"
+                  >
+                    관리자
+                  </Link>
+                )}
+                <Link
+                  href="/logs"
+                  className="underline decoration-[#B0894F]/40 underline-offset-2 hover:text-[#C1592F]"
+                >
+                  대화 로그
+                </Link>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="underline decoration-[#B0894F]/40 underline-offset-2 hover:text-[#C1592F]"
+              >
+                로그인
+              </Link>
+            )}
+          </div>
           <h1 className="font-[family-name:var(--font-display)] text-5xl font-bold tracking-tight text-[#EFE4D0]">
             FABLE
           </h1>
