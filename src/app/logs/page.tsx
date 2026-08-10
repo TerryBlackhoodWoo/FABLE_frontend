@@ -23,6 +23,7 @@ export default function LogsPage() {
   const router = useRouter();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,12 +37,13 @@ export default function LogsPage() {
     async function load(token: string) {
       const headers = { Authorization: `Bearer ${token}` };
       try {
-        const [logsRes, usageRes] = await Promise.all([
+        const [logsRes, usageRes, meRes] = await Promise.all([
           fetch(`${API_URL}/logs`, { headers }),
           fetch(`${API_URL}/usage`, { headers }),
+          fetch(`${API_URL}/me`, { headers }),
         ]);
 
-        if (logsRes.status === 401 || usageRes.status === 401) {
+        if (logsRes.status === 401 || usageRes.status === 401 || meRes.status === 401) {
           localStorage.removeItem("fable_dashboard_token");
           router.push("/login");
           return;
