@@ -169,9 +169,8 @@ export default function Home() {
               </Link>
             )}
           </div>
-          <h1 className="font-[family-name:var(--font-display)] text-5xl font-bold tracking-tight text-[#EFE4D0]">
-            FABLE
-          </h1>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/fable-title.png" alt="FABLE" className="h-16 w-auto" />
           <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.2em] text-[#A99A83]">
             원전 근거 캐릭터 챗
           </p>

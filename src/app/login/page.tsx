@@ -46,9 +46,8 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#16110D] px-6 text-[#EFE4D0]">
       <div className="w-full max-w-sm">
-        <h1 className="mb-8 text-center font-[family-name:var(--font-display)] text-3xl font-bold text-[#EFE4D0]">
-          FABLE
-        </h1>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/fable-title.png" alt="FABLE" className="mx-auto mb-8 block h-12 w-auto" />
 
         <form
           onSubmit={handleSubmit}
