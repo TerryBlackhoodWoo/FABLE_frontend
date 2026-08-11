@@ -3,6 +3,7 @@
 import { useState, FormEvent, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/lib/useAuth";
 
 // ---------- 타입 (백엔드 schemas.py와 대응) ----------
 
@@ -63,24 +64,10 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [conversation, setConversation] = useState<ConversationTurn[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const { isLoggedIn, isAdmin, logout } = useAuth();
 
-  useEffect(() => {
-    const token = localStorage.getItem("fable_dashboard_token");
-    if (!token) return;
-
-    setIsLoggedIn(true);
-
-    fetch(`${API_URL}/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { is_admin: boolean } | null) => {
-        if (data) setIsAdmin(data.is_admin);
-      })
-      .catch(() => { });
-  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -166,6 +153,12 @@ export default function Home() {
                 >
                   대화 로그
                 </Link>
+                <button
+                  onClick={logout}
+                  className="underline decoration-[#B0894F]/40 underline-offset-2 hover:text-[#C1592F]"
+                >
+                  로그아웃
+                </button>
               </>
             ) : (
               <Link

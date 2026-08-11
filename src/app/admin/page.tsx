@@ -30,6 +30,7 @@ interface LogEntry {
 export default function AdminPage() {
     const router = useRouter();
     const [accounts, setAccounts] = useState<AccountView[]>([]);
+    const [showInactive, setShowInactive] = useState(false);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -197,6 +198,10 @@ export default function AdminPage() {
             setSavingLogin(false);
         }
     }
+    const inactiveCount = accounts.filter((a) => !a.is_active).length;
+    const visibleAccounts = accounts
+        .filter((a) => showInactive || a.is_active)
+        .sort((a, b) => Number(b.is_admin) - Number(a.is_admin));
 
     return (
         <div className="min-h-screen bg-[#16110D] px-6 py-12 text-[#EFE4D0]">
@@ -281,12 +286,22 @@ export default function AdminPage() {
 
                 {/* 계정 목록 */}
                 <div className="flex flex-col gap-3">
-                    <span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.15em] text-[#A99A83]">
-                        전체 계정
-                    </span>
+                    <div className="flex items-center justify-between">
+                        <span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.15em] text-[#A99A83]">
+                            전체 계정
+                        </span>
+                        {inactiveCount > 0 && (
+                            <button
+                                onClick={() => setShowInactive((v) => !v)}
+                                className="font-[family-name:var(--font-mono)] text-[11px] text-[#A99A83] underline decoration-[#B0894F]/40 underline-offset-2 hover:text-[#C1592F]"
+                            >
+                                {showInactive ? "비활성 계정 숨기기" : `비활성 계정 보기 (${inactiveCount})`}
+                            </button>
+                        )}
+                    </div>
                     {loading && <p className="text-sm text-[#A99A83]">불러오는 중…</p>}
                     {!loading &&
-                        accounts.map((a) => (
+                        visibleAccounts.map((a) => (
                             <div
                                 key={a.id}
                                 className="flex flex-col gap-3 rounded-sm border border-[#B0894F]/20 bg-[#1F1712] p-4 text-sm"
